@@ -1,0 +1,199 @@
+<html>
+  <head>
+    <title>Dual screen on a Raspberry Pi with HDMI and GoodTFT GPIO touchscreens - ashley.geek.nz</title>
+    <style type="text/css">
+      html {
+        background: rgb(255,255,255);
+        background: linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(200,200,200,1) 20%, rgba(236,236,236,1) 40%, rgba(214,214,214,1) 65%, rgba(255,255,255,1) 100%);
+        width: 100%;
+        height: 100%;
+        padding: 50px 0 50px 0;
+      }
+      body {
+        background-color: #850fc4;
+        font-family: Tahoma, sans-serif;
+        color: #51ff91;
+        margin: auto;
+        max-width: 900px;
+        padding: 50px;
+        border-radius: 25px;
+      }
+      a:link {
+        color: #51ff91;
+      }
+      a:hover {
+        color: #c40f4e
+      }
+      article {
+        background-color: #333333;
+        color: #ddd;
+        padding: 15px;
+
+      }
+      h1 {
+        font-style: normal;
+        font-weight: normal;
+        font-size: 4em;
+      }
+      article h1 {
+        font-size: 2em;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>ashley.geek.nz</h1>
+
+    <p>This article was on my old WordPress blog (and I <a href="https://github.com/goodtft/LCD-show/issues/109">linked to it in the GoodTFT repo</a>), which died a horrible death when my Azure subscription was deleted. That's a story for another time, but while I figure out what I'm going to do for my website moving forward, I thought I'd quickly spin this article back up to help those who might need it.</p>
+    
+    <p>Thanks to the <a href="https://web.archive.org/web/20211020140334/https://ashley.geek.nz/2020/05/02/dual-screen-on-a-raspberry-pi-with-hdmi-goodtft-gpio-touchscreens/">web.archive.org</a> for being the easiest way for me to do that. Nobody wants to be messing around with WordPress backups...</p>
+
+    <p>Happy tinkering!</p>
+
+    <article class="post-12870 post type-post status-publish format-standard hentry category-technical-resources tag-hardware tag-linux tag-raspberry-pi" id="post-12870">
+    <h1 class="single-entry-title">Dual screen on a Raspberry Pi with HDMI and GoodTFT GPIO touchscreens</h1>
+    <p class="entry-meta">Posted May 2, 2020 by <a href="https://web.archive.org/web/20211020140334/https://ashley.geek.nz/author/ubersteel/" title="Posts by Ashley" rel="author">Ashley</a> in <a href="https://web.archive.org/web/20211020140334/https://ashley.geek.nz/category/technical-resources/" rel="category tag">technical resources</a></p>
+    <hr>
+    <div class="entry-content">
+    <p>The <a href="https://github.com/goodtft/LCD-show/">standard installer for the GoodTFT touchscreens</a> steamrolls any existing configurations you have, and perfectly sets you up for only itself. And in a pretty hack way, too: it modifies all sorts of system files without any care for existing system configuration. If all you’d like to do is add the screen to an existing screen topology, then the provided installation script isn’t for you.</p>
+    <p>Through fiddling, I’ve managed to&nbsp;get the RPi to continue to output over HDMI whilst also powering up this cheap little screen. I pulled apart their installation script line-by-line to see what it did. That left me with the below steps, which hopefully should help you to getting dual screen with a Raspberry Pi 3 B+ (I haven’t tested any other model, but I imagine it should work).</p>
+    <p>I’m by no means a Linux Admin, nor do I understand Raspberry Pi hardware or the ‘overlays’. I’ve simply taken concepts I do know, and extrapolated them to reverse engineering their installation script for the useful parts.</p>
+    <p>&nbsp;</p>
+    <p><strong>Here be dragons, etc.</strong> Please make sure you have a backup of your Raspberry Pi should the steps not work out well for you.</p>
+    <p>&nbsp;</p>
+    <h1>Copying files and preparing</h1>
+    <ol>
+    <li>Hopefully you’re not running an old copy of Raspbian, but <strong>update just in case</strong>:
+    <pre>sudo apt update &amp;&amp; sudo apt upgrade -VV</pre>
+    </li>
+    <li><strong>Clone the GoodTFT repo</strong><br>
+    <em>We will still need some files from the original GoodTFT code, so make sure to clone their repository to a useful place. I normally use a non-convential ‘shared’ directory in root, coz I’m a rebel:</em><p></p>
+    <ol>
+    <li>
+    <pre>sudo mkdir -p /shared/</pre>
+    </li>
+    <li>
+    <pre>sudo chown :adm /shared</pre>
+    </li>
+    <li>
+    <pre>sudo chmod g+w /shared</pre>
+    </li>
+    <li>
+    <pre>cd /shared/</pre>
+    </li>
+    <li>
+    <pre>git clone https://github.com/goodtft/LCD-show.git</pre>
+    </li>
+    <li>
+    <pre>cd LCD-show</pre>
+    </li>
+    </ol>
+    </li>
+    <li><strong>Copy screen overlay files</strong><br>
+    Now we need to copy the overlay files. The below steps are for the LCD35 or TFT35a, which is what I have.&nbsp;If you don’t have this screen and you don’t know which file(s) to copy, open up the .sh installation script for your screen, and search for ‘dtb’; or post a comment and I’ll see if I can find it<p></p>
+    <ol>
+    <li>Copy the relevant ‘-overlay.dtb’ file for your screen (mine is ‘LCD35’ or ‘TFT35a’ into /boot/overlays/
+    <ol>
+    <li>For example: sudo&nbsp;cp&nbsp;./usr/tft35a-overlay.dtb&nbsp;/boot/overlays/</li>
+    </ol>
+    </li>
+    <li>I’m uncertain if this bit is necessary, but it didn’t seem to cause issues to do so; copy the same file again but with a different filename; I only know what this is supposed to be for the tft35 screen, but I would assume the format will be the same; take the -overlay off, and add an ‘o’ to the filename
+    <ol>
+    <li>For example: sudo&nbsp;cp&nbsp;./usr/tft35a-overlay.dtb&nbsp;/boot/overlays/tft35a.dtbo</li>
+    </ol>
+    </li>
+    </ol>
+    </li>
+    <li><strong>Calculate the rotation that the add-on screen will need</strong><br>
+    Here is a bash script formula for the LCD35 screen which will orient the screen such that the GPIO pins are along the bottom edge.<br>
+    LCD35_default_rotation=90<br>
+    desired_rotation=180<br>
+    new_rotate_value=$((($LCD35_default_rotation + $desired_rotation) % 360))<p></p>
+    <ol>
+    <li>You may instead just need to do trial and error if your screen isn’t this variety</li>
+    </ol>
+    </li>
+    <li><strong>Install evdev library</strong><br>
+    The touchscreen doesn’t work properly with the already installed libraries, so we need to install ‘evdev’<p></p>
+    <pre>sudo apt-get install xserver-xorg-input-evdev</pre>
+    </li>
+    <li><strong>Touchscreen calibration file</strong><br>
+    In order for the touchscreen to be calibrated properly, you need to copy the ‘calibration’ configuration file into the Xorg directory. Which configuration you copy depends on the rotation value you calculated above.<p></p>
+    <ol>
+    <li>For example: My new_rotate_value comes out as 270, so I need to copy the 99-calibration file for the ’35’ tft which equates to:
+    <pre>sudo cp -rf ./usr/99-calibration.conf-<strong>35</strong>-<span style="font-weight: bold;">270</span> /usr/share/X11/xorg.conf.d/99-calibration.conf</pre>
+    </li>
+    </ol>
+    </li>
+    <li><strong>Override the default InputClass driver, with evdev</strong><br>
+    Now open that file (eg, /usr/share/X11/xorg.conf.d/99-calibration.conf) and add:<br>
+    Driver&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;“evdev”<br>
+    …somewhere within the InputClass Section</li>
+    <li>At this point we’ve done all we can before actually changing settings on the Raspberry Pi to start taking advantage of the new hardware</li>
+    </ol>
+    <h1>Configure Raspberry Pi boot process and X server</h1>
+    <ol>
+    <li>Run raspi-config to enable I2C and SPI from the Interfaces menu, if you haven’t already</li>
+    <li><strong>Edit /boot/cmdline.txt and remove</strong>:
+    <pre>console=serial0,115200</pre>
+    <p><em>This is so the Raspberry Pi isn’t trying to start a serial console on some of the GPIO pins used by the screen</em></p></li>
+    <li><strong>Edit /boot/config.txt</strong><br>
+    <em>The following needs to match the <strong>name of the overlay file you added in the prep</strong> (without the -overlay part) and <strong>the rotation value you calculated</strong> earlier; edit the comment to match the model of your screen, so that you know what this is all about in the future. Finally, we enable UART for communication with the screen over GPIO.</em><em><br>
+    </em><p></p>
+    <pre># Added for goodtft <strong>MPI3501</strong> / <strong>LCD35</strong>
+    dtoverlay=<strong>tft35a</strong>:rotate=<strong>270</strong>
+    enable_uart=1</pre>
+    </li>
+    <li><strong>Restart the Raspberry Pi<br>
+    </strong>This will load up the overlay and enable us to connect to the screen, but not actually use it yet</li>
+    <li><strong>Check if there is now another framebuffer device</strong>
+    <pre>ls /dev/fb*</pre>
+    <p><em>You should now have a /dev/fb0 (HDMI) and /dev/fb1 (touchscreen)</em></p></li>
+    <li><strong>Update 99-fbturbo.conf to add the framebuffer output device</strong><br>
+    Add this, below the existing Device section:<p></p>
+    <pre>Section "Device"
+    Identifier "Goodtft"
+    Driver "fbturbo"
+    Option "fbdev" "/dev/fb1"
+    Option "SwapbuffersWait" "true"
+    EndSection</pre>
+    </li>
+    <li>
+    <pre><strong>Update 99-fbturbo.conf to depict your screen layout
+    </strong><em>I positioned my Raspberry Pi screen physically below the TV on the HDMI, so the following configuration file takes that into account. You'll need to take a look at the documentation if you want something else
+    </em>Section "Screen"
+    Identifier "TV"
+    Device "Allwinner A10/A13 FBDEV"
+    Monitor "Monitor name 0"
+    EndSection
+    
+    Section "Screen"
+    Identifier "TouchScreen"
+    Device "Goodtft"
+    Monitor "Monitor name 1"
+    EndSection
+    
+    Section "ServerLayout"
+    Identifier "Default Layout"
+    Screen 0 "TV"
+    Screen 1 "TouchScreen" Below "TV"
+    EndSection</pre>
+    </li>
+    <li><strong>Calculate the Transformation Matrix for the touchscreen that takes into account your existing screens.</strong><br>
+    <em>You can use&nbsp;<a href="https://docs.google.com/spreadsheets/d/13CNQjWfzpEkHM4ZdCcUWDTdQNaFqQ6TYTwatQsYcHcQ/edit#gid=1008975224">this Google Sheet</a>&nbsp;(which I can’t find the original source that I pilfered it from, sorry!). I ended up with the following. All I need is the string of numbers at the end:</em><p></p>
+    <pre>xinput set-prop 'ADS7846 Touchscreen' --type=float 'Coordinate Transformation Matrix' <strong>0.444444444444444 0 0 0 0.142857142857143 0.857142857142857 0 0 1</strong></pre>
+    </li>
+    <li><strong>Add the transformation matrix to the calibration configuration file (/usr/share/X11/xorg.conf.d/99-calibration.conf)</strong><br>
+    <em>I added the following for mine in the Section InputClass, based on the output from the last step</em><p></p>
+    <pre>Option "TransformationMatrix "0.444444444444444 0 0 0 0.142857142857143 0.857142857142857 0 0 1"</pre>
+    </li>
+    <li><strong>Now, you should just be able to restart your window manager, and boom; two screens!</strong>
+    <pre>sudo systemctl restart lightdm</pre>
+    </li>
+    </ol>
+    <p>&nbsp;</p>
+    <p>I found that I couldn’t easily move windows between each screen, I had to explicitly start them where I wanted them. You can do that from the terminal using:</p>
+    <pre>DISPLAY=:0.1 chromium-browser https://ashley.geek.nz</pre>
+    <p>Where the number after the dot, designates the second screen, which for my configuration is the touchscreen, since it is ‘Below’ the TV.</p>
+    </article>
+  </body>
+</html>
