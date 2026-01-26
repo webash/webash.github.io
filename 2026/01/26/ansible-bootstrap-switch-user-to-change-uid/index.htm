@@ -1,0 +1,11 @@
+Bootstrapping can be slightly difficult to make clean. I wanted a single bootstrap Ansible role that would do all initial configuration for me.
+One of the steps I wanted to do was change the uid of the interactive user that I use myself so that its consistent across machines. Unfortunately that would sometimes be the only user I have initially to run anything.
+You can't change a uid of a user while it has open processes, and you can't switch Ansible SSH user while you're within a role because a role counts as tasks within a play, but only a play itself can change the SSH session.
+So how do I configure a user but only use one role?
+
+After no working solutions from searching, wrong answers from LLMs, and some [frustrating rejection on Stack Overflow](https://stackoverflow.com/questions/79865803/how-to-change-the-uid-of-the-current-ansible-user)
+
+Ignore the interactive user's setup on the first run, and then run the role again straight after once the unattend and attend ansible users have been created in the first run,
+but this time only target the interactive user's config.
+
+For example:
