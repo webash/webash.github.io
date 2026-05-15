@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>{{ page.title | default: site.title }}</title>
+    <link rel="stylesheet" href="{{ '/assets/css/styles.css' | relative_url }}">
+    {% if site.plausible and site.plausible.domain %}
+    <script defer data-domain="{{ site.plausible.domain }}" src="https://plausible.io/js/script.outbound-links.js"></script>
+    <script>window.plausible = window.plausible || function() { (window.plausible.q = window.plausible.q || []).push(arguments) }</script>
+    {% endif %}
+  </head>
+  <body>
+    <div class="container">
+      {% include header.html %}
+
+      {{ content }}
+
+      {% include footer.html %}
+    </div>
+  </body>
+</html>

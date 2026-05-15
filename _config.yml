@@ -1,0 +1,7 @@
+title: ashley.geek.nz
+author: Ashley
+tagline: "personal notes, tinkering, and guides"
+plausible:
+  domain: ashley.geek.nz
+
+# Keep the site simple; pages use `layout: default`.
